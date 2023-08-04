@@ -1,0 +1,331 @@
+<head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@700&display=swap" rel="stylesheet">
+  <link href="syles.css" rel="stylesheet">
+
+  <script src="qrcode.js" type="text/javascript"></script>
+  <script src="ethers-5.0.umd.min.js" type="text/javascript"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+  <!-- Materialize -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <script>
+    class addressBlock{
+      constructor(providedOpts){
+        this.privateKeyString = '0000000000000000000000000000000000000000000000000000000000000000';
+        this.keyCount = BigInt(0n);
+        this.lastCount = BigInt(0n);
+        this.hexChars = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'];
+        this.speed = 10;
+        this.walletAddress = '';
+        this.qrEnabled = false;
+        
+        Object.apply(this,providedOpts);
+
+        var thisObj = this;
+        for(var h=0;h<thisObj.hexChars.length;h++){
+          $('table#primary').append(`<tr id="row${thisObj.hexChars[h]}"></tr>`);
+          for(var i=0;i<64;i++){
+            $(`table#primary tr#row${thisObj.hexChars[h]}`).append(`<td class="hexChar" data-val="${thisObj.hexChars[h]}" data-pos="${i}">${thisObj.hexChars[h]}</td>`);
+          }
+        }
+        var qrcode = new QRCode(document.getElementById("qrcode"), {
+          width : 100,
+          height : 100
+        });
+      }
+      useProvidedKey(key){
+        var thisObj = this;
+        key = key.toUpperCase();
+        if(key.length !== 64){
+          return;
+        }
+        for(var l=0;l<key.length;l++){
+          if(thisObj.hexChars.indexOf(key[l]) < 0){
+            return;
+          }
+        }
+        thisObj.privateKeyString = key;
+      }
+      update(){
+        var thisObj = this;
+        $('#privateKey').text(thisObj.privateKeyString);
+        thisObj.keyCount = thisObj.keyCount + BigInt(1n);
+        if(typeof(thisObj.lastSecondCount) !== 'undefined'){
+          $('#keyCount').text(`${thisObj.keyCount} (${thisObj.lastSecondCount}/s)`);
+        } else {
+          $('#keyCount').text(`${thisObj.keyCount}`);
+        }
+        if(thisObj.privateKeyString !== '0000000000000000000000000000000000000000000000000000000000000000'){
+          const wallet = new ethers.Wallet(thisObj.privateKeyString);
+          thisObj.walletAddress = wallet.address.toString()
+          $('#address').text(thisObj.walletAddress);
+        } else {
+          $('#address').text('N/A');
+        }
+        if(thisObj.qrEnabled){
+          thisObj.generateQrCode();
+        }
+      }
+      enableMouseMode(){
+        var thisObj = this;
+        thisObj.mouseModeEnabled = true;
+        $('td.hexChar').addClass('hoverActive');
+        thisObj.setGridFromKey();
+        thisObj.update();
+        $('.hexChar').hover(function(q){
+          if(thisObj.mouseModeEnabled){
+            var pos = $(this).attr('data-pos');
+            var selectedVal = $(this).attr('data-val');
+            $(`[data-pos="${pos}"]`).removeClass('active');
+            $(this).addClass('active');
+            thisObj.readKeyFromGrid();
+            thisObj.update();
+          }
+        });
+      }
+      disableMouseMode(){
+        ab.mouseModeEnabled = false;
+        $('td.hexChar').removeClass('hoverActive');
+      }
+      enableRandomMode(){
+        var thisObj = this;
+        thisObj.randomInterval = setInterval(function(){
+          thisObj.randomizeKey();
+          thisObj.setGridFromKey();
+          thisObj.update();
+        }, 1000/thisObj.speed);
+      }
+      enableSequentialMode(){
+        var thisObj = this;
+        thisObj.update();
+        thisObj.sequentialInterval = setInterval(function(){
+          thisObj.incrementPrivateKey();
+          thisObj.setGridFromKey();
+          thisObj.update();
+        }, 1000/thisObj.speed);
+      }
+      startBenchmarkInterval(){
+        var thisObj = this;
+        thisObj.benchmarkInterval = setInterval(function(){
+          thisObj.lastSecondCount = BigInt(thisObj.keyCount - thisObj.lastCount);
+          thisObj.lastCount = thisObj.keyCount;
+        }, 1000);
+      }
+      readKeyFromGrid(){
+        var thisObj = this;
+        var newKey = '';
+        for(var l=0;l<64;l++){
+          newKey += $(`[data-pos="${l}"].active`).attr('data-val');
+        }
+        thisObj.privateKeyString = newKey;
+      }
+      setGridFromKey(){
+        var thisObj = this;
+        for(var l=0;l<thisObj.privateKeyString.length;l++){
+          $(`[data-pos="${l}"]`).removeClass('active');
+          $(`[data-pos="${l}"][data-val="${thisObj.privateKeyString[l]}"`).addClass('active');
+        }
+      }
+      randomizeKey(){
+        var thisObj = this;
+        var newKey = '';
+        var chars = 'ABCDEF0123456789';
+        for (var i=0;i<64;i++){
+          newKey += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        thisObj.privateKeyString = newKey;
+      }
+      incrementPrivateKey(){
+        var thisObj = this;
+        var newString = '';
+        var incrementNext = true;
+        for(var a=thisObj.privateKeyString.length-1;a>=0;a--){
+          var thisChar = thisObj.privateKeyString[a];
+          if(incrementNext){
+            if(thisChar === thisObj.hexChars[thisObj.hexChars.length-1]){
+              incrementNext = true;
+              var newChar = thisObj.hexChars[0];
+            } else {
+              incrementNext = false;
+              var newChar = thisObj.hexChars[thisObj.hexChars.indexOf(thisChar)+1];
+            }
+            newString = newChar+newString;
+          } else {
+            newString = thisChar+newString;
+          }
+        }
+        thisObj.privateKeyString = newString;
+      }
+      enableQr(){
+        var thisObj = this;
+        this.qrEnabled = true;
+        $('#qrcode').removeClass('qrHide');
+      }
+      disableQr(){
+        var thisObj = this;
+        this.qrEnabled = false;
+        $('#qrcode').addClass('qrHide');
+      }
+      generateQrCode(){
+        var thisObj = this;
+        qrCode.clear();
+        qrCode.makeCode(`https://etherscan.io/address/${thisObj.walletAddress}`);
+      }
+      setMode(mode){
+        ab.disableMouseMode();
+        clearInterval(ab.randomInterval);
+        clearInterval(ab.sequentialInterval);
+        ab.mode = mode;
+        switch(mode){
+          case 'mouse':
+            ab.enableMouseMode();
+          break;
+          case 'random':
+            ab.enableRandomMode();
+          break;
+          case 'sequential':
+            ab.enableSequentialMode();
+          break;
+        }
+      }
+      setSpeed(speed){
+        ab.speed = speed;
+        if(ab.mode === 'random'){
+          clearInterval(ab.randomInterval);
+          ab.enableRandomMode();
+        }
+        if(ab.mode === 'sequential'){
+          clearInterval(ab.sequentialInterval);
+          ab.enableSequentialMode();
+        }
+      }
+      setStartingKey(key){
+        ab.useProvidedKey(key);
+      }
+      setQr(enabled){
+        if(enabled){
+          ab.enableQr();
+        } else {
+          ab.disableQr();
+        }
+      }
+    }
+
+    class SettingsState{
+      constructor(){
+        // Defaults
+        this.mode = localStorage.getItem('mode')||'mouse';
+        $('#modes').val(this.mode);
+        this.speed = parseInt(localStorage.getItem('speed'))||10;
+        $('#speed').val(this.speed);
+        updateSpeedDisplay();
+        this.startingKey = localStorage.getItem('startingKey')||'0000000000000000000000000000000000000000000000000000000000000000';
+        this.qr = (localStorage.getItem('qr')=='true')?true:false;
+        $('#qrcodeswitch').prop('checked',this.qr);
+      }
+      saveState(){
+        localStorage.setItem('mode',this.mode);
+        localStorage.setItem('speed',this.speed);
+        localStorage.setItem('startingKey',this.startingKey);
+        localStorage.setItem('qr',this.qr);
+      }
+    }
+  </script>
+</head>
+<body>
+  <table id="primary">
+  </table>
+  <div class="info">Ethereum Private Key</div>
+  <div class="result" id="privateKey"></div>
+  <div class="info">Ethereum Wallet Address</div>
+  <div class="result" id="address"></div>
+  <div class="info">Keys Generated</div>
+  <div class="result" id="keyCount"></div>
+  <div id="qrcode" class="qrHide"></div>
+  <div id="settings-button">
+    <a class="btn-floating btn-large waves-effect grey darken-4 modal-trigger" href="#settingsModal">
+      <i class="material-icons">settings</i>
+    </a>
+  </div>
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <h4>Settings</h4>
+      <br>
+      <div class="input-field col s12">
+        <select id="modes" onchange="changeMode(this);">
+          <option value="" disabled selected>Choose your option</option>
+          <option value="mouse">Mouse</option>
+          <option value="random">Random</option>
+          <option value="sequential">Sequential</option>
+        </select>
+        <label>Mode</label>
+      </div>
+      <p class="range-field">
+        <input type="range" id="speed" min="1" max="1000" onmouseup="changeSpeed(this);"/>
+        <span id="speedDisplay"></span>
+      </p>
+      <div class="switch">
+        <label>
+          QR Code Off
+          <input type="checkbox" id="qrcodeswitch" onchange="changeQrCode(this);">
+          <span class="lever"></span>
+          QR Code On
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <a href="#!" class="modal-close waves-effect waves-green btn-flat">Close</a>
+    </div>
+  </div>
+</body>
+<script>
+  //Globals
+  $(document).ready(function(){
+    $('.modal').modal();
+    $('select').formSelect();
+  });
+
+  var ab = new addressBlock();
+  ab.startBenchmarkInterval();
+
+  let ss = new SettingsState();
+  ab.setMode(ss.mode);
+  ab.setSpeed(ss.speed);
+  ab.setStartingKey(ss.startingKey);
+  ab.setQr(ss.qr);
+
+  var qrCode = new QRCode("qrcode", {
+    text: "https://etherscan.io/",
+    width: 150,
+    height: 150,
+    colorDark : "#000000",
+    colorLight : "#ffffff",
+    correctLevel : QRCode.CorrectLevel.H
+  });
+
+  function changeMode(e){
+    ss.mode = $(e).children('option:selected').val()
+    ab.setMode(ss.mode);
+    ss.saveState();
+  }
+  function changeSpeed(e){
+    updateSpeedDisplay()
+    ss.speed = $(e).val()
+    ab.setSpeed(ss.speed);
+    ss.saveState();
+  }
+  function updateSpeedDisplay(){
+    speed = $('#speed').val();
+    $('#speedDisplay').text(speed);
+  }
+  function changeQrCode(e){
+    ss.qr = $(e).prop('checked')
+    ab.setQr(ss.qr);
+    ss.saveState();
+  }
+</script>

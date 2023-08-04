@@ -1,0 +1,76 @@
+body{
+  background-color: #000000;
+  margin: 0px;
+  overflow: hidden;
+  color: #1d1d1d;
+  font-family: 'Source Code Pro', monospace;
+}
+table#primary{
+  padding: 2%;
+  width: 100vw;
+  height: 70vh;
+  border-collapse: inherit;
+}
+table#primary td{
+  vertical-align: middle;
+  text-align: center;
+  font-size: 1.5vw;
+  transition-property: color;
+  transition-duration: .25s;
+  padding: 0px;
+}
+table#primary td.active{
+  color:#3131ce;
+}
+table#primary td.hoverActive:hover{
+  color:#bbbbcf;
+}
+div.info{
+  margin-top: 2%;
+  margin: auto;
+  width: 100vw;
+  text-align: center;
+  font-size: 1.5vw;
+  color: lightblue;
+}
+div.result{
+  margin-top: .5%;
+  margin: auto;
+  width: 70vw;
+  font-size: 2vw;
+  text-align: center;
+}
+div#privateKey{
+  color: #73ff50;
+}
+div#address{
+  color: #ff861e;
+}
+div#address{
+  color: #ff861e;
+}
+div#keyCount{
+  color: #4b5d3e;
+}
+div#qrCode{
+  width: 150px;
+  height: 150px;
+  position: absolute;
+  bottom: 5%;
+  left: 5%;
+  background-color: lightgrey;
+}
+.qrHide{
+  display: none;
+}
+div#qrcode img {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+}
+#settings-button{
+  position: absolute;
+  bottom: 5vh;
+  right: 5vw;
+  font-size: 40px;
+}

@@ -15,9 +15,11 @@ table#primary td{
   vertical-align: middle;
   text-align: center;
   font-size: 1.5vw;
+  padding: 0px;
+}
+table#primary td.fade{
   transition-property: color;
   transition-duration: .25s;
-  padding: 0px;
 }
 table#primary td.active{
   color:#3131ce;

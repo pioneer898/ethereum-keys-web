@@ -16,7 +16,9 @@
   <script>
     class addressBlock{
       constructor(providedOpts){
-        this.privateKeyString = '0000000000000000000000000000000000000000000000000000000000000000';
+        this.baseKey = '0000000000000000000000000000000000000000000000000000000000000000';
+        this.lastPrivateKeyString = this.baseKey;
+        this.privateKeyString = this.baseKey;
         this.keyCount = BigInt(0n);
         this.lastCount = BigInt(0n);
         this.hexChars = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'];
@@ -26,65 +28,65 @@
         
         Object.apply(this,providedOpts);
 
-        var thisObj = this;
-        for(var h=0;h<thisObj.hexChars.length;h++){
-          $('table#primary').append(`<tr id="row${thisObj.hexChars[h]}"></tr>`);
-          for(var i=0;i<64;i++){
-            $(`table#primary tr#row${thisObj.hexChars[h]}`).append(`<td class="hexChar" data-val="${thisObj.hexChars[h]}" data-pos="${i}">${thisObj.hexChars[h]}</td>`);
+        let t = this;
+        for(let h=0;h<t.hexChars.length;h++){
+          $('table#primary').append(`<tr id="row${t.hexChars[h]}"></tr>`);
+          for(let i=0;i<64;i++){
+            $(`table#primary tr#row${t.hexChars[h]}`).append(`<td class="hexChar" data-val="${t.hexChars[h]}" data-pos="${i}">${t.hexChars[h]}</td>`);
           }
         }
-        var qrcode = new QRCode(document.getElementById("qrcode"), {
+        let qrcode = new QRCode(document.getElementById("qrcode"), {
           width : 100,
           height : 100
         });
       }
       useProvidedKey(key){
-        var thisObj = this;
+        let t = this;
         key = key.toUpperCase();
         if(key.length !== 64){
           return;
         }
-        for(var l=0;l<key.length;l++){
-          if(thisObj.hexChars.indexOf(key[l]) < 0){
+        for(let l=0;l<key.length;l++){
+          if(t.hexChars.indexOf(key[l]) < 0){
             return;
           }
         }
-        thisObj.privateKeyString = key;
+        t.setPrivateKeyString(key);
+      }
+      setPrivateKeyString(newPrivateKeyString){
+        this.lastPrivateKeyString = this.privateKeyString;
+        this.privateKeyString = newPrivateKeyString;
       }
       update(){
-        var thisObj = this;
-        $('#privateKey').text(thisObj.privateKeyString);
-        thisObj.keyCount = thisObj.keyCount + BigInt(1n);
-        if(typeof(thisObj.lastSecondCount) !== 'undefined'){
-          $('#keyCount').text(`${thisObj.keyCount} (${thisObj.lastSecondCount}/s)`);
-        } else {
-          $('#keyCount').text(`${thisObj.keyCount}`);
-        }
-        if(thisObj.privateKeyString !== '0000000000000000000000000000000000000000000000000000000000000000'){
-          const wallet = new ethers.Wallet(thisObj.privateKeyString);
-          thisObj.walletAddress = wallet.address.toString()
-          $('#address').text(thisObj.walletAddress);
+        let t = this;
+        $('#privateKey').text(t.privateKeyString);
+        t.keyCount = t.keyCount + BigInt(1n);
+        $('#keyCount').text(`${t.keyCount}`);
+        if(t.privateKeyString !== t.baseKey){
+          const wallet = new ethers.Wallet(t.privateKeyString);
+          t.walletAddress = wallet.address.toString()
+          $('#address').text(t.walletAddress);
         } else {
           $('#address').text('N/A');
         }
-        if(thisObj.qrEnabled){
-          thisObj.generateQrCode();
+        if(t.qrEnabled){
+          t.generateQrCode();
         }
       }
       enableMouseMode(){
-        var thisObj = this;
-        thisObj.mouseModeEnabled = true;
+        let t = this;
+        t.mouseModeEnabled = true;
         $('td.hexChar').addClass('hoverActive');
-        thisObj.setGridFromKey();
-        thisObj.update();
+        t.setGridFromKey();
+        t.update();
         $('.hexChar').hover(function(q){
-          if(thisObj.mouseModeEnabled){
+          if(t.mouseModeEnabled){
             var pos = $(this).attr('data-pos');
             var selectedVal = $(this).attr('data-val');
             $(`[data-pos="${pos}"]`).removeClass('active');
             $(this).addClass('active');
-            thisObj.readKeyFromGrid();
-            thisObj.update();
+            t.readKeyFromGrid();
+            t.update();
           }
         });
       }
@@ -93,125 +95,148 @@
         $('td.hexChar').removeClass('hoverActive');
       }
       enableRandomMode(){
-        var thisObj = this;
-        thisObj.randomInterval = setInterval(function(){
-          thisObj.randomizeKey();
-          thisObj.setGridFromKey();
-          thisObj.update();
-        }, 1000/thisObj.speed);
+        let t = this;
+        t.timer = new fTimer(t.speed,()=>{
+          t.randomizeKey();
+          t.setGridFromKey();
+          t.update();
+        })
       }
       enableSequentialMode(){
-        var thisObj = this;
-        thisObj.update();
-        thisObj.sequentialInterval = setInterval(function(){
-          thisObj.incrementPrivateKey();
-          thisObj.setGridFromKey();
-          thisObj.update();
-        }, 1000/thisObj.speed);
+        let t = this;
+        t.update();
+        t.timer = new fTimer(t.speed,()=>{
+          t.incrementPrivateKey();
+          t.setGridFromKey();
+          t.update();
+        })
       }
       startBenchmarkInterval(){
-        var thisObj = this;
-        thisObj.benchmarkInterval = setInterval(function(){
-          thisObj.lastSecondCount = BigInt(thisObj.keyCount - thisObj.lastCount);
-          thisObj.lastCount = thisObj.keyCount;
-        }, 1000);
+        let t = this;
+        t.benchmarkInterval = setInterval(function(){
+          t.lastSecondCount = parseInt(BigInt(t.keyCount - t.lastCount))*2;
+          t.lastCount = t.keyCount;
+          if(typeof(t.lastSecondCount) !== 'undefined'){
+            $('#rate').text(` (${t.lastSecondCount}/s)`);
+          }
+        }, 500);
       }
       readKeyFromGrid(){
-        var thisObj = this;
-        var newKey = '';
-        for(var l=0;l<64;l++){
+        let t = this;
+        let newKey = '';
+        for(let l=0;l<64;l++){
           newKey += $(`[data-pos="${l}"].active`).attr('data-val');
         }
-        thisObj.privateKeyString = newKey;
+        t.setPrivateKeyString(newKey);
       }
       setGridFromKey(){
-        var thisObj = this;
-        for(var l=0;l<thisObj.privateKeyString.length;l++){
+        let t = this;
+        for(let l=0;l<t.privateKeyString.length;l++){
+          if(t.lastPrivateKeyString[l] == t.privateKeyString[l] && t.lastPrivateKeyString != t.baseKey){
+            continue;
+          }
           $(`[data-pos="${l}"]`).removeClass('active');
-          $(`[data-pos="${l}"][data-val="${thisObj.privateKeyString[l]}"`).addClass('active');
+          $(`[data-pos="${l}"][data-val="${t.privateKeyString[l]}"`).addClass('active');
         }
       }
       randomizeKey(){
-        var thisObj = this;
-        var newKey = '';
-        var chars = 'ABCDEF0123456789';
-        for (var i=0;i<64;i++){
-          newKey += chars.charAt(Math.floor(Math.random() * chars.length));
+        let t = this;
+        let newKey = '';
+        let chars = 'ABCDEF0123456789';
+        for(let i=0;i<64;i++){
+          newKey += chars.charAt(Math.floor(Math.random()*chars.length));
         }
-        thisObj.privateKeyString = newKey;
+        t.setPrivateKeyString(newKey);
       }
       incrementPrivateKey(){
-        var thisObj = this;
-        var newString = '';
-        var incrementNext = true;
-        for(var a=thisObj.privateKeyString.length-1;a>=0;a--){
-          var thisChar = thisObj.privateKeyString[a];
+        let t = this;
+        let newString = '';
+        let incrementNext = true;
+        for(let a=t.privateKeyString.length-1;a>=0;a--){
           if(incrementNext){
-            if(thisChar === thisObj.hexChars[thisObj.hexChars.length-1]){
+            let thisChar = t.privateKeyString[a];
+            let newChar;
+            if(thisChar === t.hexChars[t.hexChars.length-1]){
               incrementNext = true;
-              var newChar = thisObj.hexChars[0];
+              newChar = t.hexChars[0];
             } else {
               incrementNext = false;
-              var newChar = thisObj.hexChars[thisObj.hexChars.indexOf(thisChar)+1];
+              newChar = t.hexChars[t.hexChars.indexOf(thisChar)+1];
             }
             newString = newChar+newString;
           } else {
-            newString = thisChar+newString;
+            newString = t.privateKeyString.substring(0,a+1)+newString;
+            break;
           }
         }
-        thisObj.privateKeyString = newString;
+        t.setPrivateKeyString(newString);
       }
       enableQr(){
-        var thisObj = this;
         this.qrEnabled = true;
         $('#qrcode').removeClass('qrHide');
       }
       disableQr(){
-        var thisObj = this;
         this.qrEnabled = false;
         $('#qrcode').addClass('qrHide');
       }
       generateQrCode(){
-        var thisObj = this;
         qrCode.clear();
-        qrCode.makeCode(`https://etherscan.io/address/${thisObj.walletAddress}`);
+        qrCode.makeCode(`https://etherscan.io/address/${this.walletAddress}`);
       }
       setMode(mode){
-        ab.disableMouseMode();
-        clearInterval(ab.randomInterval);
-        clearInterval(ab.sequentialInterval);
-        ab.mode = mode;
+        let t = this;
+        t.disableMouseMode();
+        if(t.timer){
+          t.timer.clearIntervals();
+        }
+        t.mode = mode;
         switch(mode){
           case 'mouse':
-            ab.enableMouseMode();
+            t.enableMouseMode();
           break;
           case 'random':
-            ab.enableRandomMode();
+            t.enableRandomMode();
           break;
           case 'sequential':
-            ab.enableSequentialMode();
+            t.enableSequentialMode();
           break;
         }
       }
       setSpeed(speed){
-        ab.speed = speed;
-        if(ab.mode === 'random'){
-          clearInterval(ab.randomInterval);
-          ab.enableRandomMode();
+        let t = this;
+        t.speed = speed;
+        if(t.timer){
+          console.log('Clearing Intervals')
+          t.timer.clearIntervals();
         }
-        if(ab.mode === 'sequential'){
-          clearInterval(ab.sequentialInterval);
-          ab.enableSequentialMode();
+        if(t.mode === 'random'){
+          t.enableRandomMode();
+        }
+        if(t.mode === 'sequential'){
+          t.enableSequentialMode();
         }
       }
       setStartingKey(key){
-        ab.useProvidedKey(key);
+        this.useProvidedKey(key);
       }
       setQr(enabled){
         if(enabled){
-          ab.enableQr();
+          this.enableQr();
         } else {
-          ab.disableQr();
+          this.disableQr();
+        }
+      }
+      enableFade(){
+        $('table#primary td').addClass('fade');
+      }
+      disableFade(){
+        $('table#primary td').removeClass('fade');
+      }
+      setFade(enabled){
+        if(enabled){
+          this.enableFade();
+        } else {
+          this.disableFade();
         }
       }
     }
@@ -224,15 +249,38 @@
         this.speed = parseInt(localStorage.getItem('speed'))||10;
         $('#speed').val(this.speed);
         updateSpeedDisplay();
-        this.startingKey = localStorage.getItem('startingKey')||'0000000000000000000000000000000000000000000000000000000000000000';
+        this.startingKey = localStorage.getItem('startingKey')||baseKey;
         this.qr = (localStorage.getItem('qr')=='true')?true:false;
         $('#qrcodeswitch').prop('checked',this.qr);
+        this.fade = (localStorage.getItem('fade')=='true')?true:false;
+        $('#fadecodeswitch').prop('checked',this.fade);
       }
       saveState(){
         localStorage.setItem('mode',this.mode);
         localStorage.setItem('speed',this.speed);
         localStorage.setItem('startingKey',this.startingKey);
         localStorage.setItem('qr',this.qr);
+        localStorage.setItem('fade',this.fade);
+      }
+    }
+    class fTimer{
+      constructor(expectedRate,f){
+        this.intervals = [];
+        this.expectedRate = expectedRate;
+        this.setIntervals(f);
+      }
+      clearIntervals(){
+        let t = this;
+        this.intervals.forEach(clearInterval);
+      }
+      setIntervals(f){
+        let intervalCount = Math.ceil(this.expectedRate/250);
+        for(let i=0;i<intervalCount;i++){
+            let newInterval = setInterval(function(){
+            f();
+          }, (1000/this.expectedRate)*intervalCount);
+          this.intervals.push(newInterval)
+        }
       }
     }
   </script>
@@ -245,7 +293,10 @@
   <div class="info">Ethereum Wallet Address</div>
   <div class="result" id="address"></div>
   <div class="info">Keys Generated</div>
-  <div class="result" id="keyCount"></div>
+  <div class="result">
+    <span id="keyCount"></span>
+    <span id="rate"></span>
+  </div>
   <div id="qrcode" class="qrHide"></div>
   <div id="settings-button">
     <a class="btn-floating btn-large waves-effect grey darken-4 modal-trigger" href="#settingsModal">
@@ -266,15 +317,29 @@
         <label>Mode</label>
       </div>
       <p class="range-field">
-        <input type="range" id="speed" min="1" max="1000" onmouseup="changeSpeed(this);"/>
+        <label>Speed</label>
+        <input type="range" id="speed" min="1" max="10000" onmouseup="changeSpeed(this);"/>
         <span id="speedDisplay"></span>
       </p>
       <div class="switch">
+        <label>QR Code (Impacts Performance)</label>
+        <br>
         <label>
-          QR Code Off
+          Off
           <input type="checkbox" id="qrcodeswitch" onchange="changeQrCode(this);">
           <span class="lever"></span>
-          QR Code On
+          On
+        </label>
+      </div>
+      <br>
+      <div class="switch">
+        <label>Color Fade Effect (Impacts Performance)</label>
+        <br>
+        <label>
+          Off
+          <input type="checkbox" id="fadecodeswitch" onchange="changeFade(this);">
+          <span class="lever"></span>
+          On
         </label>
       </div>
     </div>
@@ -326,6 +391,11 @@
   function changeQrCode(e){
     ss.qr = $(e).prop('checked')
     ab.setQr(ss.qr);
+    ss.saveState();
+  }
+  function changeFade(e){
+    ss.fade = $(e).prop('checked')
+    ab.setFade(ss.fade);
     ss.saveState();
   }
 </script>

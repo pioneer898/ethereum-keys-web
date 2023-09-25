@@ -100,7 +100,7 @@
           t.randomizeKey();
           t.setGridFromKey();
           t.update();
-        })
+        });
       }
       enableSequentialMode(){
         let t = this;
@@ -109,7 +109,7 @@
           t.incrementPrivateKey();
           t.setGridFromKey();
           t.update();
-        })
+        });
       }
       startBenchmarkInterval(){
         let t = this;
@@ -119,7 +119,7 @@
           if(typeof(t.lastSecondCount) !== 'undefined'){
             $('#rate').text(` (${t.lastSecondCount}/s)`);
           }
-        }, 500);
+        },500);
       }
       readKeyFromGrid(){
         let t = this;
@@ -206,7 +206,6 @@
         let t = this;
         t.speed = speed;
         if(t.timer){
-          console.log('Clearing Intervals')
           t.timer.clearIntervals();
         }
         if(t.mode === 'random'){
@@ -242,18 +241,21 @@
     }
 
     class SettingsState{
+      mode = localStorage.getItem('mode')||'mouse';
+      speed = parseInt(localStorage.getItem('speed'))||10;
+      startingKey = localStorage.getItem('startingKey')||'0000000000000000000000000000000000000000000000000000000000000000';
+      qr = (localStorage.getItem('qr')=='true')?true:false;
+      fade = (localStorage.getItem('fade')=='true')?true:false;
       constructor(){
         // Defaults
-        this.mode = localStorage.getItem('mode')||'mouse';
         $('#modes').val(this.mode);
-        this.speed = parseInt(localStorage.getItem('speed'))||10;
         $('#speed').val(this.speed);
         updateSpeedDisplay();
-        this.startingKey = localStorage.getItem('startingKey')||baseKey;
-        this.qr = (localStorage.getItem('qr')=='true')?true:false;
         $('#qrcodeswitch').prop('checked',this.qr);
-        this.fade = (localStorage.getItem('fade')=='true')?true:false;
         $('#fadecodeswitch').prop('checked',this.fade);
+      }
+      setStartingKey(key){
+        this.startingKey = key;
       }
       saveState(){
         localStorage.setItem('mode',this.mode);
@@ -359,10 +361,16 @@
   ab.startBenchmarkInterval();
 
   let ss = new SettingsState();
+  ab.setStartingKey(ss.startingKey);
+  ab.setGridFromKey();
   ab.setMode(ss.mode);
   ab.setSpeed(ss.speed);
-  ab.setStartingKey(ss.startingKey);
   ab.setQr(ss.qr);
+  
+  autoSaveInterval = setInterval(function(){
+    ss.setStartingKey(ab.privateKeyString);
+    ss.saveState();
+  },1000);
 
   var qrCode = new QRCode("qrcode", {
     text: "https://etherscan.io/",
